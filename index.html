@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8">
+		<title>Pixel Collision with Phaser</title>
+		<style>* {margin: 0;}</style>
+		<script src="phaser.min.js"></script>
+		<script>
+			var game = new Phaser.Game(800, 600, Phaser.AUTO, "", {preload: preload, create: create, update: update});
+			var cloud, rainbow;
+			
+			function preload() {
+				game.load.image("sky", "sky.png");
+				game.load.image("cloud", "cloud.png");
+				game.load.image("rainbow", "rainbow.png");
+			}
+			
+			function create() {
+				game.time.advancedTiming = true;
+				game.canvas.style.cursor = "none";
+				game.add.sprite(0, 0, "sky");
+				cloud = game.add.sprite(50, 350, "cloud");
+				rainbow = game.add.sprite(150, 50, "rainbow");
+			}
+			
+			function update() {
+				cloud.x = game.input.x - cloud.width / 2;
+				cloud.y = game.input.y - cloud.height / 2;
+				
+				var broadPhaseRect = Phaser.Rectangle.intersection(cloud, rainbow);
+				var start = new Date();
+				var narrowPhaseRect = pixelCollision(cloud, rainbow);
+				var delay = new Date().getMilliseconds() - start.getMilliseconds();
+				
+				game.debug.text(!broadPhaseRect.empty ? narrowPhaseRect ? "Colliding" : "Near" : "Away", 10, 24);
+				game.debug.text(game.time.fps + "fps, " + delay + "ms", 10, 43);
+				game.debug.geom(broadPhaseRect, "rgba(255,0,0, 0.5)");
+				game.debug.geom(narrowPhaseRect, "rgba(0,255,0, 0.5)");
+			}
+			
+			function pixelCollision(a, b) {
+				var broad = Phaser.Rectangle.intersection(a, b);
+				if (!broad.empty) {
+					var bmd = new Phaser.BitmapData(game, "", broad.width, broad.height);
+					bmd.draw(a, a.x - broad.x, a.y - broad.y).blendSourceIn().draw(b, b.x - broad.x, b.y - broad.y).update();
+					var narrow = getBounds(bmd);
+					narrow.x += broad.x;
+					narrow.y += broad.y;
+					return !narrow.empty ? narrow : false;
+				}
+				return false;
+			}
+			
+			function getBounds(bmd) {
+				var bounds = new Phaser.Rectangle();
+				// Finds the leftmost position
+				scan: for (var i = 0; i < bmd.width; i++)
+					for (var j = 0; j < bmd.height; j++)
+						if (bmd.getPixel32(i, j) != 0)
+							{bounds.x = i; break scan;}
+				// Finds the topmost position
+				scan: for (var i = 0; i < bmd.height; i++)
+					for (var j = 0; j < bmd.width; j++)
+						if (bmd.getPixel32(j, i) != 0)
+							{bounds.y = i; break scan;}
+				// Finds the rightmost position
+				scan: for (var i = bmd.width; i > 0; i--)
+					for (var j = bmd.height; j > 0; j--)
+						if (bmd.getPixel32(i - 1, j - 1) != 0)
+							{bounds.width = i - bounds.x; break scan;}
+				// Finds the bottommost position
+				scan: for (var i = bmd.height; i > 0; i--)
+					for (var j = bmd.width; j > 0; j--)
+						if (bmd.getPixel32(j - 1, i - 1) != 0)
+							{bounds.height = i - bounds.y; break scan;}
+				return bounds;
+			}
+		</script>
+	</head>
+	<body></body>
+</html>
